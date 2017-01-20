@@ -4,7 +4,7 @@ This code trains probabilistic models to predict sentence labels amongst 5 categ
 
 ## Setup
 
-Requirements: Python2, pip, virtualenv
+Tested on a system with: Ubuntu 16.04, Python2, pip, virtualenv
 
 ```
 sudo apt install python-pip virtualenv
@@ -18,18 +18,24 @@ cd sentence_labelling/
 bash install.sh
 ```
 
+Activate virtual environment using:
+```
+. venv/bin/activate
+```
+
 ## Testing trained models
 
-To test the performance of trained models, launch testing console using:
+To test the performance of trained models, launch testing console using the following command (Make sure virtual environment is activated). 
 ```
 python test.py
 ```
 Start typing your sentence next to '>' symbol and press Enter when finished. Testing models can be switched with other models. Best performing models are listed in ```models/best.txt``` file
 
+Press Ctrl+D to exit the program.
 
 ## Training models over data
 
-To launch training of models, enter following command:
+To launch training of models, enter following command (Make sure virtual environment is activated):
 ```
 python train.py
 ```
