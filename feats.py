@@ -41,6 +41,16 @@ def crf_feats(dataset):
 
 	return crf_ds
 
+def crf_feat(sent):
+    sent_feats = []
+    text = word_tokenize(sent)
+    pos_arr = nltk.pos_tag(text)
+    #print pos_arr
+    for word in pos_arr:
+        #print word
+        sent_feats.append((word[0].lower(), word[1].lower())) 
+    return sent_feats
+
 
 def word2features(sent, i):
     word = sent[i][0]

@@ -3,7 +3,7 @@ import itertools
 import numpy as np
 
 from sklearn.preprocessing import LabelBinarizer
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, f1_score
 from itertools import chain
 
 def plot_confusion_matrix(cm, classes,
@@ -71,7 +71,7 @@ def label_classification_report(y_true, y_pred):
     tagset = sorted(tagset, key=lambda tag: tag.split('-', 1)[::-1])
     class_indices = {cls: idx for idx, cls in enumerate(lb.classes_)}
     
-    return classification_report(
+    return f1_score(y_true_combined, y_pred_combined, average='weighted'), classification_report(
         y_true_combined,
         y_pred_combined,
         labels = [class_indices[cls] for cls in tagset],

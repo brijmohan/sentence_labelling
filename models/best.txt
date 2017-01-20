@@ -1,0 +1,3 @@
+NaiveBayes	slnb_1
+MaxEnt	sl_maxent_1
+CRF	sl_1.crfsuite
