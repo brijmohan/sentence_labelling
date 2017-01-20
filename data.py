@@ -1,145 +1,38 @@
-
-from itertools import chain
+import itertools
 import nltk
 from nltk import word_tokenize
-from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.preprocessing import LabelBinarizer
 import sklearn
+from sklearn import datasets
 import pycrfsuite
 import random
 
+import numpy as np
+
 from sklearn.model_selection import KFold, StratifiedShuffleSplit, StratifiedKFold
+from sklearn.metrics import classification_report, confusion_matrix
+
+from six.moves import xrange, input  # pylint: disable=redefined-builtin
+from six import text_type
+from os.path import join
+
+from utils import plot_confusion_matrix, label_classification_report, print_cm
+from corpus import load_corpus
+from feats import sent2features, sent2labels, sent2tokens, pos_feats, pos_word_feats, crf_feats
+import pickle
 
 print(sklearn.__version__)
 
 nltk.download('averaged_perceptron_tagger')
 nltk.download('punkt')
 
-datafile = 'LabelledData.txt'
 
-labels = {}
+label_set, train_set, test_set = load_corpus()
 
-print "Reading complete dataset."
-with open(datafile) as dfile:
-	for line in dfile.read().splitlines():
-		line = line.strip()
-		if line:
-			sp = line.split(',,,')
-			l = sp[1].strip()
-			if l not in labels:
-				labels[l] = []
-			labels[l].append(sp[0].strip())
+MODEL_ROOT='./models/'
 
-#print labels
-label_set = set(labels.keys())
+print "\nExtracting word features ..."
 
-print "Splitting into train (80%) and test (20%)."
-train_set = []
-test_set = []
-for k, v in labels.items():
-	print "Class ==> {}, #samples ==> {}".format(k, len(v))
-	# 20% of balanced data reserved for training, rest for testing
-	train_idx = int(len(v) - len(v) / 5.0)
-	train_set += [(sent, k) for sent in v[:train_idx]]
-	test_set += [(sent, k) for sent in v[train_idx:]]
-
-
-def pos_feats(sent):
-	pos_arr = nltk.pos_tag(sent)
-	feats = {}
-	for pos in pos_arr:
-		feats['pos({})'.format(pos[1].lower())] = True
-	return feats
-
-
-def word_feats(sent):
-	feats = {}
-	for word in nltk.word_tokenize(sent):
-		feats['word({})'.format(word.lower())] = True
-	return feats
-
-
-def pos_word_feats(sent):
-	text = word_tokenize(sent)
-	pos_arr = nltk.pos_tag(text)
-	feats = {}
-	for word in pos_arr:
-		feats['has({})'.format(word[0].lower())] = True
-		feats['has({})'.format(word[1].lower())] = True
-	return feats
-
-
-def crf_feats(dataset):
-	crf_ds = []
-	for sent, label in dataset:
-		#print sent
-		sent_feats = []
-		text = word_tokenize(sent)
-		pos_arr = nltk.pos_tag(text)
-		#print pos_arr
-		for word in pos_arr:
-			#print word
-			sent_feats.append((word[0].lower(), word[1].lower(), label)) 
-		crf_ds.append(sent_feats)
-
-	return crf_ds
-
-
-def word2features(sent, i):
-    word = sent[i][0]
-    postag = sent[i][1]
-    features = [
-        'bias',
-        'word.lower=' + word.lower(),
-        'word[-3:]=' + word[-3:],
-        'word[-2:]=' + word[-2:],
-        'word.isupper=%s' % word.isupper(),
-        'word.istitle=%s' % word.istitle(),
-        'word.isdigit=%s' % word.isdigit(),
-        'postag=' + postag,
-        'postag[:2]=' + postag[:2],
-    ]
-    if i > 0:
-        word1 = sent[i-1][0]
-        postag1 = sent[i-1][1]
-        features.extend([
-            '-1:word.lower=' + word1.lower(),
-            '-1:word.istitle=%s' % word1.istitle(),
-            '-1:word.isupper=%s' % word1.isupper(),
-            '-1:postag=' + postag1,
-            '-1:postag[:2]=' + postag1[:2],
-        ])
-    else:
-        features.append('BOS')
-        
-    if i < len(sent)-1:
-        word1 = sent[i+1][0]
-        postag1 = sent[i+1][1]
-        features.extend([
-            '+1:word.lower=' + word1.lower(),
-            '+1:word.istitle=%s' % word1.istitle(),
-            '+1:word.isupper=%s' % word1.isupper(),
-            '+1:postag=' + postag1,
-            '+1:postag[:2]=' + postag1[:2],
-        ])
-    else:
-        features.append('EOS')
-                
-    return features
-
-
-def sent2features(sent):
-    return [word2features(sent, i) for i in range(len(sent))]
-
-def sent2labels(sent):
-    return [label for token, postag, label in sent]
-
-def sent2tokens(sent):
-    print sent
-    return [token for token, postag, label in sent]
-
-
-print "\nExtracting word features (a length(sentence) size dictionary containing True if word is present in sentence)."
+# uncomment below lines to use these features but they perform inferior to the ones used in demo
 # WORD FEATS
 #train_featuresets = [(word_feats(sample[0]), sample[1]) for sample in train_set]
 #test_featuresets = [(word_feats(sample[0]), sample[1]) for sample in test_set]
@@ -154,11 +47,13 @@ test_featuresets = [(pos_word_feats(sample[0]), sample[1]) for sample in test_se
 
 total_featureset = train_featuresets+test_featuresets
 
-print train_set[0]
+
+#print train_set[0]
 
 train_sents = crf_feats(train_set)
 test_sents = crf_feats(test_set)
 
+print "\n\nHere's how the feature set looks like...\n\n"
 print train_sents[0]
 
 total_sents = train_sents+test_sents
@@ -174,73 +69,53 @@ y_test = [sent2labels(s) for s in test_sents]
 X = [sent2features(s) for s in total_sents]
 y = [sent2labels(s) for s in total_sents]
 
-#print y
+def save_model(filename, classifier):
+	with open(join(MODEL_ROOT, filename+'.pickle'), 'wb') as f:
+		pickle.dump(classifier, f)
 
+def load_model(model_name):
+	with open(join(MODEL_ROOT, model_name+'.pickle'), 'wb') as f:
+		classifier = pickle.load(f)
+		return classifier
 
-
-#X = X_train+X_test
-#y = y_train+y_test
-
-def bio_classification_report(y_true, y_pred):
-    """
-    Classification report for a list of BIO-encoded sequences.
-    It computes token-level metrics and discards "O" labels.
-    
-    Note that it requires scikit-learn 0.15+ (or a version from github master)
-    to calculate averages properly!
-    """
-    lb = LabelBinarizer()
-    y_true_combined = lb.fit_transform(list(chain.from_iterable(y_true)))
-    y_pred_combined = lb.transform(list(chain.from_iterable(y_pred)))
-        
-    tagset = set(lb.classes_) - {'O'}
-    print tagset
-    tagset = sorted(tagset, key=lambda tag: tag.split('-', 1)[::-1])
-    class_indices = {cls: idx for idx, cls in enumerate(lb.classes_)}
-    
-    return classification_report(
-        y_true_combined,
-        y_pred_combined,
-        labels = [class_indices[cls] for cls in tagset],
-        target_names = tagset,
-    )
-
-
-kf = KFold(n_splits=3)
-ssf = StratifiedShuffleSplit(n_splits=5, test_size=0.2)
-skf = StratifiedKFold(n_splits=5)
-
-print X[0]
-#for kidx, (train, test) in enumerate(kf.split(X)):
-for kidx, (train, test) in enumerate(skf.split(X, [l[0] for l in y])):
-
-	print "============training for fold {} ...============".format(kidx)
-
-	trainer = pycrfsuite.Trainer(verbose=False)
-
-	nb_train_feats = []
-	nb_test_feats = []
-	#print train
-	for tidx in train:
-	    trainer.append(X[tidx], y[tidx])
-	    nb_train_feats.append((total_featureset[tidx][0], total_featureset[tidx][1]))
-
-	for tidx in test:
-	    nb_test_feats.append((total_featureset[tidx][0], total_featureset[tidx][1]))
+'''
+Train Naive Bayes and MaxEnt Classifier
+'''
+def train_nb_maxent(fold, nb_train_feats, nb_test_feats, y_test):
 
 	print "\nTraining Naive Bayes Classifier."
+	print "=================================="
 	classifier = nltk.NaiveBayesClassifier.train(nb_train_feats)
 
+	save_model('slnb_{}'.format(fold), classifier)
+
 	print "Testing Naive Bayes."
+	print "=================================="
 	print("Accuracy: {}".format(nltk.classify.accuracy(classifier, nb_test_feats)))
 
+	y_pred = [classifier.classify(sent_feat[0]) for sent_feat in nb_test_feats]
+	print_cm(y_test, y_pred)
 
-	print "Training Maxent Classifier."
+	# Plot normalized confusion matrix
+	#plt.figure()
+	#plot_confusion_matrix(cnf_matrix, classes=label_set, normalize=True,
+	                      #title='Normalized confusion matrix')
+
+	#plt.show()
+
+	print "Training Maxent Classifier. Press Ctrl+C to stop training and see model predition."
+	print "=================================================================================="
 	classifier = nltk.classify.MaxentClassifier.train(nb_train_feats, 'GIS', trace=0, max_iter=500)
+	save_model('sl_maxent_{}'.format(fold), classifier)
 	print "Testing Maxent Classifier."
+	print "=========================="
 	print("Accuracy: {}".format(nltk.classify.accuracy(classifier, nb_test_feats)))
 
+	y_pred = [classifier.classify(sent_feat[0]) for sent_feat in nb_test_feats]
+	print_cm(y_test, y_pred)
 
+
+def train_crf(trainer):
 	trainer.set_params({
 	    'c1': 1.0,   # coefficient for L1 penalty
 	    'c2': 1e-3,  # coefficient for L2 penalty
@@ -251,9 +126,11 @@ for kidx, (train, test) in enumerate(skf.split(X, [l[0] for l in y])):
 	})
 
 
+	print "CRF Training Parameters"
+	print "======================="
 	print trainer.params()
 
-	trainer.train('sentence_label_{}.crfsuite'.format(kidx))
+	trainer.train(join(MODEL_ROOT, 'sl_{}.crfsuite'.format(kidx)))
 
 	#print trainer.logparser.last_iteration
 
@@ -261,7 +138,7 @@ for kidx, (train, test) in enumerate(skf.split(X, [l[0] for l in y])):
 
 	
 	tagger = pycrfsuite.Tagger()
-	tagger.open('sentence_label_{}.crfsuite'.format(kidx))
+	tagger.open(join(MODEL_ROOT, 'sl_{}.crfsuite'.format(kidx)))
 
 
 	#example_sent = test_sents[random.randint(0, len(test_sents))]
@@ -278,7 +155,7 @@ for kidx, (train, test) in enumerate(skf.split(X, [l[0] for l in y])):
 		y_pred.append(tagger.tag(X[teidx]))
 		y_test.append(y[teidx])
 
-	print(bio_classification_report(y_test, y_pred))
+	print(label_classification_report(y_test, y_pred))
 
 
 	'''
@@ -307,3 +184,59 @@ for kidx, (train, test) in enumerate(skf.split(X, [l[0] for l in y])):
 	print("\nTop negative:")
 	print_state_features(Counter(info.state_features).most_common()[-20:])
 	'''
+
+
+#print y
+
+
+#X = X_train+X_test
+#y = y_train+y_test
+
+
+#kf = KFold(n_splits=3)
+#ssf = StratifiedShuffleSplit(n_splits=5, test_size=0.2)
+print "Splitting the data set in 5 folds created by preserving the \%age of samples in each class"
+skf = StratifiedKFold(n_splits=5)
+
+#print X[0]
+#for kidx, (train, test) in enumerate(kf.split(X)):
+for kidx, (train, test) in enumerate(skf.split(X, [l[0] for l in y])):
+
+	print "============training for fold {} ...============".format(kidx)
+
+	trainer = pycrfsuite.Trainer(verbose=False)
+	nb_train_feats = []
+	nb_test_feats = []
+	y_test = []
+	#print train
+	for tidx in train:
+	    trainer.append(X[tidx], y[tidx])
+	    nb_train_feats.append((total_featureset[tidx][0], total_featureset[tidx][1]))
+
+	for tidx in test:
+	    nb_test_feats.append((total_featureset[tidx][0], total_featureset[tidx][1]))
+	    y_test.append(total_featureset[tidx][1])
+
+
+	train_nb_maxent(kidx, nb_train_feats, nb_test_feats, y_test)
+
+	train_crf(trainer)
+
+	
+
+
+'''
+INTERACTIVE
+'''
+'''
+while True:
+	try:
+		word = input("> ")
+		if not issubclass(type(word), text_type):
+	  		word = text_type(word, encoding='utf-8', errors='replace')
+	except EOFError:
+		break
+	if not word:
+		break
+	# Do something to process command line input from user
+'''
