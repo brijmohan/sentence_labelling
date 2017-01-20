@@ -20,8 +20,6 @@ from corpus import load_corpus
 from feats import sent2features, sent2labels, sent2tokens, pos_feats, pos_word_feats, crf_feats
 import pickle
 
-print(sklearn.__version__)
-
 nltk.download('averaged_perceptron_tagger')
 nltk.download('punkt')
 
