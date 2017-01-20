@@ -117,3 +117,7 @@ avg / total       0.97      0.97      0.97      2916
 This shows the output of train.py for second fold of dataset. We can observe that CRF clearly outperforms NaiveBayes and MaxEnt classifier for sentence labelling task.
 
 Note: MaxEnt classifier taskes maximum time to train, so the training can be stopped midway and the models are saved. It performs relatively well when its trained for around 1000 iterations.
+
+
+For further explanation and help, please drop a mail at:
+contactbrijmohan@gmail.com
