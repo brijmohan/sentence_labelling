@@ -4,7 +4,7 @@ This code trains probabilistic models to predict sentence labels amongst 5 categ
 
 Naive Bayes (NB) is the generative approach [[1](https://www.google.co.in/url?sa=t&rct=j&q=&esrc=s&source=web&cd=2&ved=0ahUKEwiJquLQwNHRAhVFgI8KHe1ABvEQFggjMAE&url=https%3A%2F%2Fcai.type.sk%2Fcontent%2F2010%2F2%2Fdialogue-act-recognition-approaches%2F1890.pdf&usg=AFQjCNFDOOcJ8mmRmnVMOgU-a-P5UaICkw&sig2=DVldSxPolbpb0ca8w01bAA&bvm=bv.144224172,d.c2I)] which models the probability distribution of each class by assuming that each dimention in the feature space is independent so its difficult to provide the sequence information of words in each sentence. Its as good as bag-of-words model.
 
-MaxEnt classifier and Conditional Random Fields [[2](https://www.researchgate.net/profile/Matthias_Zimmermann5/publication/221489847_Joint_segmentation_and_classification_of_dialog_acts_using_conditional_random_fields/links/5702393908aee995dde91909.pdf)] are discriminative approaches to learn the boundaries between each class. MaxEnt does not consider sequence of words like NB but CRF does. Therefore CRF (97%) outperforms NB (0.84) and MaxEnt (0.82).
+MaxEnt classifier and Conditional Random Fields [[2](https://www.researchgate.net/profile/Matthias_Zimmermann5/publication/221489847_Joint_segmentation_and_classification_of_dialog_acts_using_conditional_random_fields/links/5702393908aee995dde91909.pdf)] are discriminative approaches to learn the boundaries between each class. MaxEnt does not consider sequence of words like NB but CRF does. Therefore CRF (**97%**) outperforms NB (**0.84**) and MaxEnt (**0.82**).
 
 MaxEnt is trained for 1000 iterations.
 ## Setup
